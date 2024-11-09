@@ -11,8 +11,9 @@ from firebase_admin import storage
 from datetime import datetime
 
 
+# Initialize Firebase with service account credentials
 
-cred = credentials.Certificate("C:/Users/aasho/OneDrive/Desktop/image recognition project/src/serviceaccounts.json")
+cred = credentials.Certificate("C:/Users/aasho/OneDrive/Desktop/face recognition attendance system/src/serviceaccounts.json")
 firebase_admin.initialize_app(cred,{
     'databaseURL':"https://real-time-face-attendanc-142ca-default-rtdb.firebaseio.com/",
     'storageBucket':"real-time-face-attendanc-142ca.appspot.com"
@@ -20,6 +21,7 @@ firebase_admin.initialize_app(cred,{
 bucket = storage.bucket()
 
 # set the width and height of frame
+
 cap = cv2.VideoCapture(0)
 cap.set(3,640)
 cap.set(4,480)
@@ -85,38 +87,50 @@ while True:
             # print("facedis",facedis)
 
 
+            # Find the index of the closest match
+
             matchindex = np.argmin(facedis)
             #print("Match Index",matchindex)
 
+            # If there's a match, retrieve the student ID and bounding box coordinates
 
             if matches[matchindex]:
                 print("known face detected")
                 print(stids[matchindex])
-                y1,x2,y2,x1 = facelocation
-                y1,x2,y2,x1 = y1*4, x2*4, y2*4, x1*4
-                bbox = 55+x1,162+y1,x2-x1,y2-y1
-                imgbackground = cvzone.cornerRect(imgbackground,bbox,rt=0)
+                # Get the face coordinates, resize to original size, and draw a bounding box
+                y1, x2, y2, x1 = facelocation
+                y1, x2, y2, x1 = y1*4, x2*4, y2*4, x1*4
+                # Adjust bounding box to fit the webcam feed on the background
+                bbox = (55 + x1, 162 + y1, x2 - x1, y2 - y1)
+
+                imgbackground = cvzone.cornerRect(imgbackground, bbox, rt=0)
+
+                # Store the matched student ID
                 id = stids[matchindex]
                 print(id)
 
+                # Set mode and counter for handling attendance
                 if counter==0:
                     counter=1
                     modetype=1
 
 
+        # Display student information if a match is found
         if counter!=0:
             if counter ==1:
                 # get the data
                 studentinfo = db.reference(f'Students/{id}').get()
                 print(studentinfo)
                 
-                #get the image from storage
+                 
+                # Download the student's image from Firebase storage
 
                 blob = bucket.get_blob(f'images\{id}.png')
                 array = np.frombuffer(blob.download_as_string(),np.uint8)
                 imgstudent = cv2.imdecode(array,cv2.COLOR_BGRA2BGR)
 
-                #update data of attendance
+                # Calculate the time since the last attendance and update if more than a day
+
                 datetimeobject = datetime.strptime(studentinfo['last attendance time'],
                                             "%Y-%m-%d %H:%M:%S")
                 seconds = (datetime.now() - datetimeobject).total_seconds()
@@ -133,12 +147,16 @@ while True:
                     imgbackground[44:44 + 633, 808:808 + 414] = imgmodlist[modetype]
 
 
+            # Update the display based on the mode type and counter value
 
             if modetype!=3:
                 if 10<counter<20:
                     modetype=2
 
                 imgbackground[44:44 + 633, 808:808 + 414] = imgmodlist[modetype]
+
+
+                # Display student information on the screen
 
                 if counter<=10:
 
@@ -156,6 +174,9 @@ while True:
                     cv2.putText(imgbackground,str(studentinfo['starting year']),(1125,625),
                                 cv2.FONT_HERSHEY_COMPLEX,0.6,(100,100,100),1)
                     
+
+                    # Center the name text
+
                     (w, h), _ = cv2.getTextSize(studentinfo['name'],cv2.FONT_HERSHEY_COMPLEX,1,1)
                     offset = (414-w)//2
                     
@@ -163,10 +184,12 @@ while True:
                     cv2.putText(imgbackground,str(studentinfo['name']),(808+offset,445),
                                 cv2.FONT_HERSHEY_COMPLEX,1,(50,50,50),1)
                     
+                    # Display the student's image
 
                     imgbackground[175:175+216,909:909+216] = imgstudent
 
 
+            # Increment counter and reset after display timeout
             counter +=1
 
             if counter>=20:
@@ -176,19 +199,13 @@ while True:
                 imgstudent = []
                 imgbackground[175:175+216,909:909+216] = imgstudent
 
-    
+
+    # Reset mode if no face is detected    
     else:
         modetype = 0
         counter = 0
         
 
-
-
-
-
-
-
-
-    #cv2.imshow("Display",img)
+    # Display the final image with webcam overlay and information on the screen
     cv2.imshow("Face Attendance",imgbackground)
     cv2.waitKey(1)

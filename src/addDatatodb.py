@@ -2,7 +2,7 @@ import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
 
-cred = credentials.Certificate("C:/Users/aasho/OneDrive/Desktop/image recognition project/src/serviceaccounts.json")
+cred = credentials.Certificate("C:/Users/aasho/OneDrive/Desktop/face recognition attendance system/src/serviceaccounts.json")
 firebase_admin.initialize_app(cred,{
     'databaseURL':"https://real-time-face-attendanc-142ca-default-rtdb.firebaseio.com/"
 })
